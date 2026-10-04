@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WiFi Guardian</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f5fd1'/%3E%3Cpath d='M7 14a13 13 0 0 1 18 0M10 18a8 8 0 0 1 12 0' stroke='%23fff' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='23' r='2.2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#eef1f5; --panel:#fff; --panel2:#f3f6f9; --line:#d9dfe7; --fg:#0f1b29; --muted:#5d6c7d;
+  --accent:#1f5fd1; --accent-fg:#fff; --accent-soft:#e3ecfb;
+  --crit:#c0302a; --crit-bg:#fbe7e5; --high:#b4540a; --high-bg:#fbeadb; --med:#8a6a00; --med-bg:#f8f0cf;
+  --low:#4b6a8a; --low-bg:#e6edf4; --ok:#1c7a43; --ok-bg:#dff3e6;
+  --map:#f7f9fc; --node:#fff; --grid:#e5eaf0;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0a0e13; --panel:#10161d; --panel2:#161e27; --line:#202b38; --fg:#dde5ee; --muted:#7f90a3;
+  --accent:#5b9dff; --accent-fg:#06121f; --accent-soft:#14233a;
+  --crit:#ff6b63; --crit-bg:#341a1c; --high:#f2954d; --high-bg:#33210f; --med:#e3c04a; --med-bg:#2c2610;
+  --low:#8fb0d0; --low-bg:#17222e; --ok:#58cf8a; --ok-bg:#12281c;
+  --map:#0c1218; --node:#141c25; --grid:#16202b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0a0e13; --panel:#10161d; --panel2:#161e27; --line:#202b38; --fg:#dde5ee; --muted:#7f90a3;
+  --accent:#5b9dff; --accent-fg:#06121f; --accent-soft:#14233a;
+  --crit:#ff6b63; --crit-bg:#341a1c; --high:#f2954d; --high-bg:#33210f; --med:#e3c04a; --med-bg:#2c2610;
+  --low:#8fb0d0; --low-bg:#17222e; --ok:#58cf8a; --ok-bg:#12281c;
+  --map:#0c1218; --node:#141c25; --grid:#16202b; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--sans);margin:0;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.app{display:grid;grid-template-columns:200px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--panel);border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
+.brand{display:flex;gap:10px;align-items:center;padding:2px 8px}
+.brand svg{flex:none}
+.brand b{font-weight:600;display:block;line-height:1.15;font-size:13.5px}
+.brand span{font:10.5px var(--mono);color:var(--muted);letter-spacing:.04em}
+.navlabel{font:10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 10px 4px}
+nav{display:flex;flex-direction:column;gap:1px}
+nav button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-radius:4px;padding:7px 10px;cursor:pointer;color:var(--muted);transition:background .15s,color .15s}
+nav button:hover{background:var(--panel2);color:var(--fg)}
+nav button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent);font-weight:500}
+.count{font:11px var(--mono);opacity:.9}
+.count.hot{background:var(--crit);color:#fff;border-radius:9px;padding:0 6px;opacity:1}
+.railfoot{margin-top:auto;font-size:11.5px;color:var(--muted);padding:0 8px;line-height:1.45}
+.wrap{min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:9px clamp(16px,3vw,32px);background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.crumb{color:var(--muted);font-size:13px}.crumb b{color:var(--fg);font-weight:500}
+.tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.pill{font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:3px;padding:2px 8px;color:var(--muted)}
+.pill.mode{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,var(--line));background:var(--ok-bg)}
+.clock{font:12px var(--mono);color:var(--muted)}
+.live{display:flex;align-items:center;gap:7px;font:11.5px var(--mono);color:var(--muted)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:ping 2.2s infinite}
+.live.off i{background:var(--muted);animation:none}
+@keyframes ping{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 7px transparent}}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:12px;color:var(--muted);transition:border-color .15s,color .15s}
+.btn:hover{color:var(--fg);border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--accent-fg)}
+.btn[disabled]{opacity:.5;cursor:default}
+.scrub{display:flex;align-items:center;gap:8px}
+.scrub input[type=range]{width:150px;accent-color:var(--accent)}
+.scrub select{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:12px}
+main{padding:20px clamp(16px,3vw,32px) 40px;min-width:0;display:flex;flex-direction:column;gap:18px}
+section[hidden]{display:none}
+h1{font-size:19px;font-weight:600;margin:0;letter-spacing:-.005em}
+.sub{color:var(--muted);margin:2px 0 0;max-width:78ch;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.kpi{background:var(--panel);padding:12px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi small{color:var(--muted);font:10.5px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.kpi strong{font:500 26px/1.15 var(--mono);letter-spacing:-.02em;transition:color .3s}
+.kpi.crit strong{color:var(--crit)}.kpi.warn strong{color:var(--high)}
+.kpi.bump strong{animation:bump .5s}
+@keyframes bump{0%{transform:translateY(0)}35%{transform:translateY(-3px)}100%{transform:none}}
+.grid2{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr);gap:18px;align-items:start}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;min-width:0;overflow:hidden}
+.panel>h2{font:500 11px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.panel>h2 .note{text-transform:none;letter-spacing:0;font:11.5px var(--sans)}
+#map{display:block;width:100%;height:430px;background:var(--map)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:-1px}
+.feed{max-height:430px;overflow:auto}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer;align-items:start;transition:background .12s}
+.row:hover{background:var(--panel2)}
+.row:last-child{border-bottom:0}
+.row.fresh{animation:fresh 1.6s ease-out}
+@keyframes fresh{0%{background:color-mix(in srgb,var(--crit) 16%,transparent)}100%{background:transparent}}
+.row b{font-weight:500;display:block;line-height:1.3}
+.row small{color:var(--muted);display:block;line-height:1.35}
+.sev{font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.sev.critical{background:var(--crit);color:#fff}
+.sev.high{background:var(--high-bg);color:var(--high)}
+.sev.medium{background:var(--med-bg);color:var(--med)}
+.sev.low{background:var(--low-bg);color:var(--low)}
+.chip{display:inline-block;font:11px var(--mono);border:1px solid var(--line);border-radius:3px;padding:0 6px;color:var(--muted);white-space:nowrap}
+.chip.known{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,var(--line))}
+.chip.unknown{color:var(--high);border-color:color-mix(in srgb,var(--high) 45%,var(--line))}
+.chip.quarantined{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,var(--line))}
+.chip.rnd{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.empty{padding:26px 16px;color:var(--muted);text-align:center;font-size:13px}
+table{width:100%;border-collapse:collapse}
+th{font:500 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--panel)}
+td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr{cursor:pointer;transition:background .12s}
+tbody tr:hover,tbody tr.sel{background:var(--panel2)}
+tbody tr.sel{box-shadow:inset 3px 0 0 var(--accent)}
+.scroll{overflow:auto;max-height:560px}
+.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,1fr);gap:18px;align-items:start}
+.detail{padding:14px;display:flex;flex-direction:column;gap:14px}
+.detail h3{margin:0;font-size:16px;font-weight:600;line-height:1.3}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:5px 12px;font-size:13px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;word-break:break-all}
+.detail h4{margin:0 0 6px;font:500 10.5px var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
+pre.code{margin:0;padding:9px 11px;background:var(--panel2);border:1px solid var(--line);border-radius:4px;font:12px/1.5 var(--mono);white-space:pre-wrap;word-break:break-all}
+.bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .5s}
+.talk{display:grid;grid-template-columns:120px 1fr 64px;gap:10px;align-items:center;padding:6px 14px;font-size:12.5px}
+#spark{display:block;width:100%;height:92px}
+.dns{max-height:210px;overflow:auto;font:12px/1.6 var(--mono);padding:8px 14px}
+.dns div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.dns div.fresh{animation:fresh 1.2s}
+.dns b{color:var(--fg);font-weight:400}
+.audit{padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.ok{color:var(--ok)}.bad{color:var(--crit)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.toast{position:fixed;right:18px;bottom:18px;background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:4px;font-size:13px;opacity:0;transform:translateY(8px);transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:none}
+@media (max-width:1000px){.app{grid-template-columns:1fr}.rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px}
+ .rail nav{flex-direction:row;flex-wrap:wrap}.railfoot,.navlabel{display:none}.grid2,.split{grid-template-columns:1fr}.scrub input[type=range]{width:100px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M7 14a13 13 0 0 1 18 0M10 18a8 8 0 0 1 12 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="16" cy="23" r="2.2" fill="#fff"/></svg>
+      <div><b>WiFi Guardian</b><span>NETWORK MONITOR</span></div>
+    </div>
+    <div>
+      <div class="navlabel">Workspace</div>
+      <nav id="nav" role="tablist">
+        <button role="tab" data-v="overview" aria-selected="true">Overview</button>
+        <button role="tab" data-v="alerts" aria-selected="false">Alert queue <span class="count" id="nAlerts">0</span></button>
+        <button role="tab" data-v="devices" aria-selected="false">Devices <span class="count" id="nDevices">0</span></button>
+        <button role="tab" data-v="log" aria-selected="false">Connection log</button>
+        <button role="tab" data-v="response" aria-selected="false">Response <span class="count" id="nActions">0</span></button>
+      </nav>
+    </div>
+    <div class="railfoot" id="railfoot">Lab data is synthetic. Documentation IP ranges and .example domains only.</div>
+  </aside>
+  <div class="wrap">
+    <header class="topbar">
+      <div class="crumb">WiFi Guardian / <b id="crumb">Overview</b></div>
+      <div class="tools">
+        <span class="pill mode" id="modePill">monitor only</span>
+        <span class="clock" id="clock">--:--:-- UTC</span>
+        <div class="scrub" id="scrub">
+          <button class="btn" id="play" aria-label="Play or pause">Pause</button>
+          <input type="range" id="seek" min="0" max="100" value="0" aria-label="Replay position">
+          <select id="speed" aria-label="Replay speed"><option value="4">4x</option><option value="8" selected>8x</option><option value="16">16x</option><option value="32">32x</option></select>
+        </div>
+        <span class="live" id="live"><i></i><span id="liveTxt">replay</span></span>
+        <button class="btn" id="theme">Theme</button>
+      </div>
+    </header>
+    <main>
+      <!-- OVERVIEW -->
+      <section id="v-overview" class="col">
+        <div><h1>Network overview</h1><p class="sub">Every device on the WiFi, who it talks to, and what the detectors think about it. Nothing is blocked in monitor-only mode.</p></div>
+        <div class="kpis">
+          <div class="kpi" id="k-online"><small>Devices online</small><strong>0</strong></div>
+          <div class="kpi warn" id="k-unknown"><small>Unknown devices</small><strong>0</strong></div>
+          <div class="kpi" id="k-flows"><small>Flows seen</small><strong>0</strong></div>
+          <div class="kpi crit" id="k-open"><small>Open alerts</small><strong>0</strong></div>
+          <div class="kpi" id="k-act"><small>Blocks recommended</small><strong>0</strong></div>
+        </div>
+        <div class="grid2">
+          <div class="col">
+            <div class="panel">
+              <h2>Live network map <span class="note">dots are connections, rings are alerts</span></h2>
+              <canvas id="map" aria-label="Live network map"></canvas>
+              <div class="legend"><span><i style="background:var(--ok);border-radius:50%"></i>known</span><span><i style="background:var(--high);transform:rotate(45deg)"></i>unknown</span><span><i style="background:var(--crit);border-radius:50%"></i>alert source</span><span><i style="border:1px dashed var(--muted)"></i>offline</span></div>
+            </div>
+            <div class="panel"><h2>Traffic <span class="note">bytes per 10 s window</span></h2><svg id="spark" preserveAspectRatio="none"></svg></div>
+          </div>
+          <div class="col">
+            <div class="panel"><h2>Live alerts <span class="note" id="feedNote">newest first</span></h2><div class="feed" id="liveFeed"><div class="empty">No alerts yet.</div></div></div>
+            <div class="panel"><h2>Top talkers</h2><div id="talkers" style="padding:6px 0"></div></div>
+            <div class="panel"><h2>DNS lookups <span class="note">last 40</span></h2><div class="dns" id="dnsFeed"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ALERTS -->
+      <section id="v-alerts" class="col" hidden>
+        <div><h1>Alert queue</h1><p class="sub">Each alert says why it fired, which ATT&amp;CK technique it maps to and what an L1 analyst should do next.</p></div>
+        <div class="tabs" id="sevFilter"></div>
+        <div class="split">
+          <div class="panel"><div class="scroll"><table><thead><tr><th>Sev</th><th>Time</th><th>Rule</th><th>Source</th><th>Status</th></tr></thead><tbody id="alertRows"></tbody></table></div></div>
+          <div class="panel" id="alertDetail"><div class="empty">Pick an alert to see evidence and next steps.</div></div>
+        </div>
+      </section>
+
+      <!-- DEVICES -->
+      <section id="v-devices" class="col" hidden>
+        <div><h1>Devices</h1><p class="sub">The register of every MAC address that has touched this network. Randomized MACs are flagged because the same phone can show up under a new address.</p></div>
+        <div class="split">
+          <div class="panel"><div class="scroll"><table><thead><tr><th>Status</th><th>Device</th><th>MAC</th><th>IP</th><th>First seen</th><th>Last seen</th><th>Sess.</th></tr></thead><tbody id="devRows"></tbody></table></div></div>
+          <div class="panel" id="devDetail"><div class="empty">Pick a device for its timeline.</div></div>
+        </div>
+      </section>
+
+      <!-- LOG -->
+      <section id="v-log" class="col" hidden>
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:end;flex-wrap:wrap">
+          <div><h1>Connection log</h1><p class="sub">Forensic register: when each device joined or left, with MAC, IP, hostname and vendor. Times are UTC.</p></div>
+          <button class="btn primary" id="csv">Export CSV</button>
+        </div>
+        <div class="panel"><div class="scroll" style="max-height:480px"><table><thead><tr><th>Time (UTC)</th><th>Event</th><th>MAC</th><th>IP</th><th>Hostname</th><th>Vendor</th><th>Status</th></tr></thead><tbody id="logRows"></tbody></table></div></div>
+        <div class="panel"><h2>Evidence integrity</h2><div class="audit" id="audit"></div></div>
+      </section>
+
+      <!-- RESPONSE -->
+      <section id="v-response" class="col" hidden>
+        <div><h1>Response</h1><p class="sub">What the response layer decided for each alert. In monitor-only mode nothing is changed; the commands are what auto mode would run.</p></div>
+        <div class="panel"><div class="scroll" style="max-height:420px"><table><thead><tr><th>Time</th><th>Action</th><th>Target</th><th>State</th><th>Why</th><th></th></tr></thead><tbody id="actRows"></tbody></table></div></div>
+        <div class="panel"><h2>Protected list <span class="note">never blocked, in any mode</span></h2><div class="audit" id="prot"></div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="demo-data.js" onerror="void 0"></script>
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SEV = {critical:4, high:3, medium:2, low:1};
+const pad = n => String(n).padStart(2, "0");
+const hms = t => { const d = new Date(t * 1000); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`; };
+const iso = t => new Date(Math.floor(t) * 1000).toISOString().replace(".000Z", "Z");
+const fmtBytes = n => n > 1e9 ? (n/1e9).toFixed(1)+" GB" : n > 1e6 ? (n/1e6).toFixed(1)+" MB" : n > 1e3 ? (n/1e3).toFixed(0)+" KB" : n+" B";
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const toast = m => { const t = $("#toast"); t.textContent = m; t.classList.add("on"); setTimeout(() => t.classList.remove("on"), 1800); };
+
+/* ---------------- state built from the feed ---------------- */
+let S;
+function resetState() {
+  S = {devices: new Map(), alerts: [], actions: [], log: [], dns: [], flows: 0, bytes: new Map(), buckets: new Map(),
+       perDev: new Map(), now: META.start, applied: 0, alertStatus: new Map()};
+}
+function dev(mac) { if (!S.perDev.has(mac)) S.perDev.set(mac, {dns: new Map(), dst: new Map(), bytes: 0, last: 0}); return S.perDev.get(mac); }
+
+function apply(it, animate) {
+  S.now = it.t; S.applied++;
+  if (it.k === "device") {
+    S.devices.set(it.mac, it);
+    if (it.ev === "join" || it.ev === "leave" || it.ev === "lease" || it.ev === "ip_change") { S.log.push({t: it.t, ev: it.ev, d: it}); if (S.log.length > 5000) S.log.shift(); }
+    if (animate && it.ev === "join") Map_.pulse(it.mac, css("--accent"));
+  } else if (it.k === "flow") {
+    S.flows++;
+    const m = it.src_mac; if (m) { const p = dev(m); p.last = it.t; p.bytes += it.bytes; p.dst.set(it.dst_ip + ":" + it.dport, (p.dst.get(it.dst_ip + ":" + it.dport) || 0) + it.bytes); }
+    const b = Math.floor(it.t / 10); S.buckets.set(b, (S.buckets.get(b) || 0) + it.bytes);
+    if (animate) Map_.packet(it);
+  } else if (it.k === "dns") {
+    S.dns.push(it); if (S.dns.length > 40) S.dns.shift();
+    if (it.src_mac) { const p = dev(it.src_mac); p.last = it.t; p.dns.set(it.query, (p.dns.get(it.query) || 0) + 1); }
+  } else if (it.k === "alert") {
+    S.alerts.push(it); S.alertStatus.set(it.id, "new");
+    if (animate) { Map_.pulse(it.src_mac || it.victim_mac, css("--crit"), true); if (it.rule === "deauth_flood") Map_.zap(it.victim_mac); }
+  } else if (it.k === "action") {
+    const i = S.actions.findIndex(a => a.id === it.id);
+    if (i >= 0) S.actions[i] = it; else S.actions.push(it);
+  }
+}
+
+/* ---------------- network map ---------------- */
+const Map_ = (() => {
+  const cv = $("#map"), ctx = cv.getContext("2d");
+  let W = 0, H = 0, dpr = 1, nodes = new Map(), packets = [], rings = [], zaps = [], order = [];
+  function resize() { const r = cv.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; layout(); }
+  function layout() {
+    const gw = META.gateway.mac, others = order.filter(m => m !== gw);
+    const cx = W * 0.36, cy = H * 0.5, rx = Math.min(W * 0.30, 240), ry = Math.min(H * 0.38, 170);
+    nodes.set(gw, {x: cx, y: cy, gw: true});
+    others.forEach((m, i) => { const a = -Math.PI * 0.5 + (i / Math.max(others.length, 8)) * Math.PI * 2 * 1.0 + 0.35; nodes.set(m, {x: cx + Math.cos(a) * rx, y: cy + Math.sin(a) * ry}); });
+    nodes.set("net", {x: W - 70, y: cy, net: true});
+  }
+  function sync() {
+    const want = [...S.devices.keys()];
+    if (want.length !== order.length || want.some((m, i) => m !== order[i])) { order = want; layout(); }
+  }
+  function pos(m) { return nodes.get(m); }
+  function packet(f) {
+    if (packets.length > 160) return;
+    const a = pos(f.src_mac), g = pos(META.gateway.mac); if (!a || !g) return;
+    const hot = hasOpenAlert(f.src_mac);
+    const destMac = f.dst_ip.startsWith("192.168.") ? [...S.devices.values()].find(d => d.ips.includes(f.dst_ip))?.mac : null;
+    packets.push({path: [a, g, destMac && pos(destMac) ? pos(destMac) : pos("net")], seg: 0, p: 0, hot});
+  }
+  function pulse(mac, color, strong) { const n = pos(mac); if (n) rings.push({n, born: performance.now(), color, strong}); }
+  function zap(mac) { const n = pos(mac); if (n) zaps.push({n, born: performance.now()}); }
+  function draw(now) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = css("--grid"); ctx.lineWidth = 1;
+    for (let x = 20; x < W; x += 28) { ctx.globalAlpha = .55; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 20; y < H; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    sync();
+    const gw = pos(META.gateway.mac), net = pos("net"); if (!gw) return;
+    const muted = css("--muted"), line = css("--line"), crit = css("--crit"), ok = css("--ok"), high = css("--high"), fg = css("--fg"), nodeBg = css("--node"), accent = css("--accent");
+    // gateway -> internet
+    ctx.strokeStyle = line; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gw.x, gw.y); ctx.lineTo(net.x, net.y); ctx.stroke();
+    // links
+    for (const [m, d] of S.devices) {
+      const n = pos(m); if (!n || n.gw) continue;
+      const hot = hasOpenAlert(m);
+      ctx.setLineDash(d.online ? [] : [4, 4]); ctx.strokeStyle = hot ? crit : d.online ? line : muted; ctx.lineWidth = hot ? 1.6 : 1.2; ctx.globalAlpha = d.online ? 1 : .5;
+      ctx.beginPath(); ctx.moveTo(gw.x, gw.y); ctx.lineTo(n.x, n.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    // deauth zaps
+    zaps = zaps.filter(z => now - z.born < 2400);
+    for (const z of zaps) { const k = (now - z.born) / 2400; ctx.strokeStyle = crit; ctx.globalAlpha = 1 - k; ctx.setLineDash([3, 5]); ctx.lineDashOffset = -now / 40; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gw.x, gw.y); ctx.lineTo(z.n.x, z.n.y); ctx.stroke(); }
+    ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.lineDashOffset = 0;
+    // packets
+    packets = packets.filter(p => p.seg < 2);
+    for (const p of packets) {
+      p.p += 0.022; if (p.p >= 1) { p.p = 0; p.seg++; if (p.seg >= 2) continue; }
+      const a = p.path[p.seg], b = p.path[p.seg + 1];
+      ctx.fillStyle = p.hot ? crit : accent; ctx.globalAlpha = .9;
+      ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p.p, a.y + (b.y - a.y) * p.p, p.hot ? 3 : 2.4, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // nodes
+    ctx.font = "11px " + css("--mono"); ctx.textAlign = "center";
+    for (const [m, d] of S.devices) {
+      const n = pos(m); if (!n) continue;
+      const hot = hasOpenAlert(m), col = hot ? crit : d.status === "known" ? ok : d.status === "quarantined" ? crit : high;
+      if (n.gw) { ctx.fillStyle = nodeBg; ctx.strokeStyle = fg; ctx.lineWidth = 2; roundRect(n.x - 20, n.y - 14, 40, 28, 5); ctx.fill(); ctx.stroke(); ctx.fillStyle = fg; ctx.fillText("GW", n.x, n.y + 4); ctx.fillText(META.ssid, n.x, n.y + 32); continue; }
+      ctx.globalAlpha = d.online ? 1 : .45; ctx.fillStyle = nodeBg; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash(d.online ? [] : [3, 3]);
+      ctx.beginPath();
+      if (d.status === "known") ctx.arc(n.x, n.y, 12, 0, 7); else { ctx.moveTo(n.x, n.y - 15); ctx.lineTo(n.x + 15, n.y); ctx.lineTo(n.x, n.y + 15); ctx.lineTo(n.x - 15, n.y); ctx.closePath(); }
+      ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = fg; ctx.fillText((d.label || d.hostname || d.mac.slice(-8)).slice(0, 18), n.x, n.y + 29);
+      ctx.globalAlpha = 1;
+    }
+    // internet
+    ctx.fillStyle = nodeBg; ctx.strokeStyle = muted; ctx.lineWidth = 1.5; roundRect(net.x - 38, net.y - 22, 76, 44, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = fg; ctx.fillText("Internet", net.x, net.y + 4);
+    // rings
+    rings = rings.filter(r => now - r.born < (r.strong ? 1800 : 900));
+    for (const r of rings) { const dur = r.strong ? 1800 : 900, k = (now - r.born) / dur; ctx.strokeStyle = r.color; ctx.globalAlpha = (1 - k) * .9; ctx.lineWidth = r.strong ? 2.5 : 1.5; ctx.beginPath(); ctx.arc(r.n.x, r.n.y, 16 + k * (r.strong ? 46 : 26), 0, 7); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+  function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function clear() { packets = []; rings = []; zaps = []; order = []; nodes = new Map(); }
+  addEventListener("resize", resize);
+  return {resize, draw, packet, pulse, zap, clear};
+})();
+
+function hasOpenAlert(mac) {
+  if (!mac) return false;
+  for (let i = S.alerts.length - 1; i >= 0; i--) {
+    const a = S.alerts[i];
+    if ((a.src_mac === mac || a.victim_mac === mac) && S.now - a.t < 40 && S.alertStatus.get(a.id) !== "closed") return true;
+  }
+  return false;
+}
+
+/* ---------------- rendering ---------------- */
+let view = "overview", selAlert = null, selDev = null, sevFilter = "all";
+const nameOf = d => d.label || d.hostname || d.mac;
+
+function renderKpis(bump) {
+  const ds = [...S.devices.values()].filter(d => d.mac !== META.gateway.mac);
+  const set = (id, v, hot) => { const el = $("#" + id); const s = el.querySelector("strong"); if (s.textContent !== String(v)) { s.textContent = v; if (bump && hot) { el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); } } };
+  set("k-online", ds.filter(d => d.online).length);
+  set("k-unknown", ds.filter(d => d.status === "unknown").length, true);
+  set("k-flows", S.flows.toLocaleString());
+  const open = S.alerts.filter(a => S.alertStatus.get(a.id) !== "closed").length;
+  set("k-open", open, true);
+  set("k-act", S.actions.filter(a => a.state === "recommended" || a.state === "pending_approval").length, true);
+  $("#nAlerts").textContent = open; $("#nAlerts").classList.toggle("hot", open > 0);
+  $("#nDevices").textContent = ds.length;
+  $("#nActions").textContent = S.actions.length;
+}
+
+function alertRow(a, cls) {
+  return `<div class="row ${cls || ""}" data-alert="${esc(a.id)}"><span class="sev ${a.severity}">${a.severity}</span><div><b>${esc(a.title)}</b><small>${esc(a.summary)}</small></div><span class="mono" style="color:var(--muted)">${hms(a.t)}</span></div>`;
+}
+let lastFeedLen = 0;
+function renderFeed() {
+  const el = $("#liveFeed");
+  if (!S.alerts.length) { el.innerHTML = '<div class="empty">No alerts yet.</div>'; lastFeedLen = 0; return; }
+  const fresh = S.alerts.length > lastFeedLen ? S.alerts.length - lastFeedLen : 0;
+  el.innerHTML = S.alerts.slice().reverse().map((a, i) => alertRow(a, i < fresh ? "fresh" : "")).join("");
+  lastFeedLen = S.alerts.length;
+}
+function renderTalkers() {
+  const rows = [...S.devices.values()].filter(d => d.mac !== META.gateway.mac).map(d => ({d, b: dev(d.mac).bytes})).sort((a, b) => b.b - a.b).slice(0, 6);
+  const max = Math.max(1, ...rows.map(r => r.b));
+  $("#talkers").innerHTML = rows.map(r => `<div class="talk"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nameOf(r.d))}</span><div class="bar"><i style="width:${(r.b / max * 100).toFixed(1)}%"></i></div><span class="mono" style="text-align:right">${fmtBytes(r.b)}</span></div>`).join("") || '<div class="empty">Waiting for traffic.</div>';
+}
+function renderDns() {
+  $("#dnsFeed").innerHTML = S.dns.slice().reverse().map((q, i) => `<div class="${i === 0 ? "fresh" : ""}">${hms(q.t)}  <b>${esc(q.src_ip)}</b>  ${esc(q.query)}</div>`).join("");
+}
+function renderSpark() {
+  const svg = $("#spark"), w = 600, h = 92; svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  const b0 = Math.floor(META.start / 10), n = Math.ceil(META.duration / 10) + 1;
+  const vals = Array.from({length: n}, (_, i) => S.buckets.get(b0 + i) || 0), max = Math.max(1, ...vals, 1);
+  const cur = Math.floor(S.now / 10) - b0, bw = w / n;
+  let d = ""; vals.forEach((v, i) => { if (i > cur) return; const bh = Math.max(1, (v / max) * (h - 14)); d += `<rect x="${(i * bw + 1).toFixed(1)}" y="${(h - bh - 2).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${v / max > .6 ? css("--high") : css("--accent")}" opacity=".85"/>`; });
+  svg.innerHTML = `<line x1="0" x2="${w}" y1="${h - 1}" y2="${h - 1}" stroke="${css("--line")}"/>` + d;
+}
+
+function renderAlerts() {
+  const f = $("#sevFilter");
+  const levels = ["all", "critical", "high", "medium", "low"];
+  f.innerHTML = levels.map(l => `<button class="btn ${sevFilter === l ? "primary" : ""}" data-sev="${l}">${l}</button>`).join("");
+  const rows = S.alerts.slice().reverse().filter(a => sevFilter === "all" || a.severity === sevFilter);
+  $("#alertRows").innerHTML = rows.map(a => `<tr data-alert="${esc(a.id)}" class="${selAlert === a.id ? "sel" : ""}"><td><span class="sev ${a.severity}">${a.severity}</span></td><td class="mono">${hms(a.t)}</td><td>${esc(a.title)}</td><td class="mono">${esc(a.src_ip || a.src_mac || a.victim_mac || "-")}</td><td><span class="chip">${esc(S.alertStatus.get(a.id))}</span></td></tr>`).join("") || '<tr><td colspan="5" class="empty">No alerts in this view.</td></tr>';
+  const a = S.alerts.find(x => x.id === selAlert);
+  if (!a) { $("#alertDetail").innerHTML = '<div class="empty">Pick an alert to see evidence and next steps.</div>'; return; }
+  const act = S.actions.find(x => x.alert_id === a.id);
+  $("#alertDetail").innerHTML = `<div class="detail">
+    <div><span class="sev ${a.severity}">${a.severity}</span> <span class="mono" style="color:var(--muted);margin-left:6px">${esc(a.id)} · ${iso(a.t)}</span></div>
+    <h3>${esc(a.title)}</h3><div>${esc(a.summary)}</div>
+    <dl class="kv"><dt>Source</dt><dd class="mono">${esc(a.src_ip || "-")} / ${esc(a.src_mac || a.victim_mac || "-")}</dd><dt>Device</dt><dd>${esc(a.device || "not in register")}</dd>
+    <dt>ATT&amp;CK</dt><dd>${a.mitre.map(m => `<span class="chip">${esc(m.id)} ${esc(m.name)}</span>`).join(" ")}</dd></dl>
+    <div><h4>Evidence</h4><pre class="code">${a.evidence.map(esc).join("\n")}</pre></div>
+    <div><h4>L1 next steps</h4><ol class="steps">${a.playbook.map(s => `<li>${esc(s)}</li>`).join("")}</ol></div>
+    ${act ? `<div><h4>Response · ${esc(act.state.replace(/_/g, " "))}</h4><div style="margin-bottom:6px">${esc(act.reason)}</div>${act.commands.length ? `<pre class="code">${act.commands.map(esc).join("\n")}</pre>` : ""}</div>` : ""}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" data-set="investigating" data-id="${esc(a.id)}">Mark investigating</button>
+      <button class="btn" data-set="closed" data-id="${esc(a.id)}">Close as resolved</button>
+      <button class="btn" data-set="closed" data-id="${esc(a.id)}">False positive</button>
+      ${a.src_mac ? `<button class="btn" data-dev="${esc(a.src_mac)}">Open device</button>` : ""}
+    </div></div>`;
+}
+
+function renderDevices() {
+  const ds = [...S.devices.values()].filter(d => d.mac !== META.gateway.mac);
+  $("#devRows").innerHTML = ds.map(d => `<tr data-dev="${esc(d.mac)}" class="${selDev === d.mac ? "sel" : ""}"><td><span class="chip ${d.status}">${d.status}</span></td><td>${esc(nameOf(d))}${d.online ? "" : ' <span class="chip">offline</span>'}</td><td class="mono">${esc(d.mac)}${d.randomized ? ' <span class="chip rnd">rand</span>' : ""}</td><td class="mono">${esc(d.ips.join(", ") || "-")}</td><td class="mono">${hms(d.first_seen)}</td><td class="mono">${hms(Math.max(d.last_seen, dev(d.mac).last))}</td><td class="mono">${d.sessions}</td></tr>`).join("");
+  const d = S.devices.get(selDev);
+  if (!d) { $("#devDetail").innerHTML = '<div class="empty">Pick a device for its timeline.</div>'; return; }
+  const p = dev(d.mac), sess = S.log.filter(l => l.d.mac === d.mac), als = S.alerts.filter(a => a.src_mac === d.mac || a.victim_mac === d.mac);
+  const dst = [...p.dst.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10), dns = [...p.dns.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14);
+  $("#devDetail").innerHTML = `<div class="detail">
+    <div><span class="chip ${d.status}">${d.status}</span> ${d.randomized ? '<span class="chip rnd">randomized MAC</span>' : ""}</div>
+    <h3>${esc(nameOf(d))}</h3>
+    <dl class="kv"><dt>MAC</dt><dd class="mono">${esc(d.mac)}</dd><dt>Vendor</dt><dd>${esc(d.vendor)}</dd><dt>Hostname</dt><dd>${esc(d.hostname || "-")}</dd><dt>IP history</dt><dd class="mono">${esc(d.ips.join(", ") || "-")}</dd><dt>First seen</dt><dd class="mono">${iso(d.first_seen)}</dd><dt>Sessions</dt><dd>${d.sessions}</dd></dl>
+    <div><h4>Join / leave</h4>${sess.map(l => `<div class="mono">${hms(l.t)}  ${esc(l.ev)}</div>`).join("") || '<span style="color:var(--muted)">none yet</span>'}</div>
+    <div><h4>Talks to</h4>${dst.map(([k, v]) => `<div class="mono">${esc(k)}  <span style="color:var(--muted)">${fmtBytes(v)}</span></div>`).join("") || '<span style="color:var(--muted)">no traffic yet</span>'}</div>
+    <div><h4>DNS names asked</h4>${dns.map(([k, v]) => `<div class="mono" style="word-break:break-all">${esc(k)}  <span style="color:var(--muted)">x${v}</span></div>`).join("") || '<span style="color:var(--muted)">none yet</span>'}</div>
+    <div><h4>Alerts</h4>${als.map(a => `<div><span class="sev ${a.severity}">${a.severity}</span> ${esc(a.title)}</div>`).join("") || '<span style="color:var(--muted)">none</span>'}</div>
+    ${d.status === "unknown" ? '<div><button class="btn primary" data-approve="' + esc(d.mac) + '">Approve this device</button></div>' : ""}</div>`;
+}
+
+function renderLog() {
+  $("#logRows").innerHTML = S.log.slice().reverse().map(l => `<tr data-dev="${esc(l.d.mac)}"><td class="mono">${iso(l.t)}</td><td>${esc({join: "joined WiFi", leave: "left WiFi", lease: "got IP address (DHCP)", ip_change: "IP address changed"}[l.ev])}</td><td class="mono">${esc(l.d.mac)}</td><td class="mono">${esc(l.d.ips.join(", ") || "-")}</td><td>${esc(l.d.hostname || "-")}</td><td>${esc(l.d.vendor)}${l.d.randomized ? ' <span class="chip rnd">rand</span>' : ""}</td><td><span class="chip ${l.d.status}">${l.d.status}</span></td></tr>`).join("") || '<tr><td colspan="7" class="empty">No connections recorded yet.</td></tr>';
+  const a = META.audit;
+  $("#audit").innerHTML = a ? `<div><b class="${a.ok ? "ok" : "bad"}">${a.ok ? "Hash chain verified" : "Chain broken"}</b> · ${a.entries} entries (alerts, actions, first-seen records)</div><div class="mono" style="word-break:break-all;color:var(--muted)">head ${esc(a.head)}</div><div style="color:var(--muted)">Each entry stores the hash of the previous one, so editing or deleting a row breaks every hash after it. Run <span class="mono">python -m wifiguardian verify --db wg.db</span> to check a real database.</div>` : '<div style="color:var(--muted)">Live mode: run the verify command on the database.</div>';
+}
+
+function renderResponse() {
+  $("#actRows").innerHTML = S.actions.slice().reverse().map(a => `<tr><td class="mono">${hms(a.t)}</td><td>${esc(a.kind.replace(/_/g, " "))}</td><td class="mono">${esc(a.target || "-")}</td><td><span class="chip ${a.state === "skipped_protected" ? "known" : a.state === "recommended" ? "unknown" : ""}">${esc(a.state.replace(/_/g, " "))}</span></td><td>${esc(a.reason)}</td><td>${a.state === "pending_approval" && live ? `<button class="btn primary" data-approve-action="${esc(a.id)}">Approve</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">No actions yet.</td></tr>';
+  $("#prot").innerHTML = (META.protected || []).map(p => `<div class="mono">${esc(p)}</div>`).join("") + '<div style="color:var(--muted)">The gateway and the admin laptop are protected so a false positive can never lock you out.</div>';
+}
+
+function renderAll(bump) {
+  renderKpis(bump);
+  if (view === "overview") { renderFeed(); renderTalkers(); renderDns(); renderSpark(); }
+  else if (view === "alerts") renderAlerts();
+  else if (view === "devices") renderDevices();
+  else if (view === "log") renderLog();
+  else if (view === "response") renderResponse();
+  $("#clock").textContent = hms(S.now) + " UTC";
+}
+
+/* ---------------- navigation + events ---------------- */
+function show(v) {
+  view = v;
+  document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== "v-" + v);
+  document.querySelectorAll("#nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === v));
+  $("#crumb").textContent = {overview: "Overview", alerts: "Alert queue", devices: "Devices", log: "Connection log", response: "Response"}[v];
+  if (v === "overview") Map_.resize();
+  renderAll(false);
+}
+$("#nav").addEventListener("click", e => { const b = e.target.closest("button[data-v]"); if (b) show(b.dataset.v); });
+document.addEventListener("click", e => {
+  const t = e.target;
+  const al = t.closest("[data-alert]"); if (al) { selAlert = al.dataset.alert; show("alerts"); return; }
+  const sv = t.closest("[data-sev]"); if (sv) { sevFilter = sv.dataset.sev; renderAlerts(); return; }
+  const st = t.closest("[data-set]"); if (st) { S.alertStatus.set(st.dataset.id, st.dataset.set); renderAll(false); toast("Alert marked " + st.dataset.set); return; }
+  const aa = t.closest("[data-approve-action]"); if (aa) { post("/api/approve-action", {id: aa.dataset.approveAction}).then(ok => toast(ok ? "Approved" : "Could not approve (already decided?)")); return; }
+  const ap = t.closest("[data-approve]"); if (ap) {
+    if (live) { post("/api/approve-device", {mac: ap.dataset.approve}).then(ok => toast(ok ? "Device approved and added to the allowlist" : "Could not approve device")); return; }
+    const d = S.devices.get(ap.dataset.approve); if (d) { d.status = "known"; renderAll(false); toast("Added to allowlist (replay only, not persisted)"); } return; }
+  const dv = t.closest("[data-dev]"); if (dv) { selDev = dv.dataset.dev; if (view !== "devices") show("devices"); else renderDevices(); return; }
+});
+$("#csv").addEventListener("click", () => {
+  const head = ["time_utc", "event", "mac", "ip", "hostname", "vendor", "randomized_mac", "status"];
+  const q = v => '"' + String(v ?? "").replace(/"/g, '""').replace(/^([=+\-@])/, "'$1") + '"';
+  const lines = [head.join(",")].concat(S.log.map(l => [iso(l.t), l.ev, l.d.mac, l.d.ips.join(" "), l.d.hostname, l.d.vendor, l.d.randomized, l.d.status].map(q).join(",")));
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], {type: "text/csv"})); a.download = "wifi-connection-log.csv"; a.click();
+});
+$("#theme").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("wg-theme", next); } catch (e) {}
+  renderAll(false);
+});
+try { const t = localStorage.getItem("wg-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+
+async function post(url, body) {
+  try { const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json", "X-WG-Request": "1"}, body: JSON.stringify(body)}); return r.ok; }
+  catch (e) { return false; }
+}
+
+/* ---------------- replay engine ---------------- */
+let META, FEED = [], idx = 0, playing = true, speed = 8, lastTs = 0, simT = 0, live = false;
+function seekTo(i) {
+  resetState(); Map_.clear(); idx = 0;
+  while (idx < i && idx < FEED.length) apply(FEED[idx++], false);
+  simT = idx ? FEED[idx - 1].t : META.start;
+  lastFeedLen = S.alerts.length; renderAll(false);
+}
+function tick(now) {
+  const dt = lastTs ? Math.min(0.1, (now - lastTs) / 1000) : 0; lastTs = now;
+  if (playing && !live) {
+    simT += dt * speed; let changed = false;
+    while (idx < FEED.length && FEED[idx].t <= simT) { apply(FEED[idx++], true); changed = true; }
+    if (idx >= FEED.length && simT > META.start + META.duration + 2) { playing = false; $("#play").textContent = "Replay"; }
+    S.now = Math.max(S.now, Math.min(simT, META.start + META.duration));
+    $("#seek").value = ((S.now - META.start) / META.duration * 100).toFixed(1);
+    if (changed) renderAll(true); else { $("#clock").textContent = hms(S.now) + " UTC"; }
+    if (view === "overview" && Math.floor(now / 1000) !== tick.sec) { tick.sec = Math.floor(now / 1000); renderSpark(); }
+  }
+  if (view === "overview") Map_.draw(now);
+  requestAnimationFrame(tick);
+}
+$("#play").addEventListener("click", () => {
+  if ($("#play").textContent === "Replay") { seekTo(0); playing = true; $("#play").textContent = "Pause"; return; }
+  playing = !playing; $("#play").textContent = playing ? "Pause" : "Play";
+});
+$("#speed").addEventListener("change", e => speed = +e.target.value);
+$("#seek").addEventListener("input", e => {
+  const target = META.start + (e.target.value / 100) * META.duration; let i = 0; while (i < FEED.length && FEED[i].t <= target) i++;
+  seekTo(i); simT = target; S.now = target; renderAll(false);
+});
+
+function start(meta, feed, isLive) {
+  META = meta; FEED = feed; live = isLive; resetState();
+  $("#modePill").textContent = meta.mode === "monitor" ? "monitor only" : meta.mode;
+  if (isLive) { $("#scrub").style.display = "none"; $("#liveTxt").textContent = "live"; }
+  else { $("#liveTxt").textContent = "replay of recorded lab run"; }
+  simT = meta.start; S.now = meta.start; Map_.resize(); renderAll(false); requestAnimationFrame(tick);
+}
+
+(async function boot() {
+  if (location.protocol.startsWith("http")) {
+    try {
+      const m = await (await fetch("/api/meta", {cache: "no-store"})).json();
+      m.start = 0; m.duration = 1; m.audit = null; META = m; live = true; resetState();
+      $("#scrub").style.display = "none"; $("#liveTxt").textContent = m.error ? "error: " + m.error : "live"; $("#modePill").textContent = m.mode === "monitor" ? "monitor only" : m.mode;
+      Map_.resize(); requestAnimationFrame(tick);
+      const es = new EventSource("/api/stream"); let pending = false;
+      es.onmessage = ev => { const it = JSON.parse(ev.data); if (!S.applied) { META.start = it.t; S.now = it.t; } apply(it, true); if (!pending) { pending = true; setTimeout(() => { pending = false; renderAll(true); }, 150); } };
+      es.addEventListener("end", () => { es.close(); $("#live").classList.add("off"); $("#liveTxt").textContent = "scenario finished"; });
+      return;
+    } catch (e) { /* fall through to embedded replay */ }
+  }
+  if (window.WG_DEMO) start(WG_DEMO.meta, WG_DEMO.feed, false);
+  else document.querySelector("main").innerHTML = '<div class="empty">No data. Run <span class="mono">python -m wifiguardian build-demo</span> or <span class="mono">python -m wifiguardian serve</span>.</div>';
+})();
+</script>
+</body>
+</html>

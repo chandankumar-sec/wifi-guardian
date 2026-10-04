@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wifi-guardian"
+version = "0.1.0"
+description = "WiFi monitor with attack detection, a forensic connection record and optional auto-response"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+live = ["scapy>=2.5"]
+dev = ["pytest"]
+
+[project.scripts]
+wifiguardian = "wifiguardian.__main__:main"
+
+[tool.setuptools]
+packages = ["wifiguardian"]
+
+[tool.setuptools.package-data]
+wifiguardian = ["dashboard/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

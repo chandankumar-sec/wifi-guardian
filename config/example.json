@@ -1,0 +1,13 @@
+{
+  "ssid": "HomeLab-WiFi",
+  "mode": "monitor",
+  "gateway": { "ip": "192.168.50.1", "mac": "02:00:00:00:00:01" },
+  "allowlist": {
+    "00:00:5e:00:53:01": "My laptop",
+    "00:00:5e:00:53:02": "My phone"
+  },
+  "admin_macs": ["00:00:5e:00:53:01"],
+  "blocklist_ips": [],
+  "blocklist_domains": [],
+  "thresholds": { "syn_count": 200, "scan_targets": 15 }
+}
